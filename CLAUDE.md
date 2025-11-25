@@ -45,17 +45,9 @@ Google AI Studio (новый аккаунт, Estonia)
 
 ## Основные команды
 
-### Быстрые команды управления VPN
+### Команды запуска
 
 ```bash
-# Диагностика и мониторинг
-./scripts/vpn-status.sh         # Статус VPN (сервер, трафик, настройки)
-./scripts/monitor-logs.sh       # Логи Tallinn в реальном времени
-./scripts/quick-check.sh        # Проверка готовности для Gemini
-
-# Настройка
-./scripts/apply-dns-config.sh   # Применение DNS конфигурации
-
 # Запуск браузера
 ./gemini-browser.sh             # Linux/WSL
 gemini-browser.bat              # Windows
@@ -130,48 +122,21 @@ LC_ALL=en_US.UTF-8
 
 ```
 google_gemini_vpn/
-├── scripts/                    # Управление VPN
-│   ├── monitor-logs.sh         # Логи в реальном времени
-│   ├── vpn-status.sh           # Диагностика VPN
-│   ├── quick-check.sh          # Проверка готовности
-│   └── apply-dns-config.sh     # Применение DNS
 ├── configs/
 │   ├── nekobox/
 │   │   └── routing-google.json # DNS маршрутизация
 │   └── warp/
 │       └── settings.md         # Руководство WARP
 ├── docs/
+│   ├── AI_WORKFLOW.md          # Мульти-модельный AI workflow
 │   ├── ARCHITECTURE.md         # Архитектура системы
-│   ├── TROUBLESHOOTING.md      # Решение проблем
-│   └── PERPLEXITY_PLAYWRIGHT_MCP.md  # Playwright MCP для Perplexity Pro
+│   ├── PERPLEXITY_PLAYWRIGHT_MCP.md  # Playwright MCP
+│   └── TROUBLESHOOTING.md      # Решение проблем
 ├── gemini-browser.{sh,bat}     # Запуск браузера
 ├── check-leaks.bat             # Проверка утечек
+├── .mcp.json.example           # Шаблон MCP конфига
 └── CLAUDE.md                   # Этот файл
 ```
-
-## Мониторинг логов Tallinn
-
-### Удаленный мониторинг в реальном времени
-
-```bash
-./scripts/monitor-logs.sh
-```
-
-**Фильтры**: ERROR, WARN, google, gemini, anthropic, fail, timeout
-**Цветной вывод**: Ошибки красным, предупреждения желтым, Google-запросы зеленым
-**Расположение лога**: `/mnt/c/.../nekoray/config/neko.log`
-
-### Статистика VPN
-
-```bash
-./scripts/vpn-status.sh
-```
-
-Показывает:
-- Активный сервер (Tallinn 89.169.15.11 или 39)
-- Трафик DL/UL в GB
-- Статус FakeDNS
-- Режим работы (vpn/tun)
 
 ## Решение проблем
 
@@ -193,7 +158,5 @@ google_gemini_vpn/
 - Перезапустить браузер
 
 **DNS не работает (use_dns_object: false):**
-```bash
-./scripts/apply-dns-config.sh
-# Перезапустить NekoBox
-```
+- Скопировать `configs/nekobox/routing-google.json` в директорию NekoBox
+- Перезапустить NekoBox

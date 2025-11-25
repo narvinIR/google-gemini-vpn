@@ -43,8 +43,6 @@ chromium-browser \
   --accept-lang=en-US,en;q=0.9 \
   --disable-features=WebRtcHideLocalIpsWithMdns \
   --webrtc-ip-handling-policy=disable_non_proxied_udp \
-  --disable-web-security \
-  --disable-site-isolation-trials \
   --no-first-run \
   --disable-background-timer-throttling \
   https://aistudio.google.com &
