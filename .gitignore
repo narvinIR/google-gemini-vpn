@@ -1,0 +1,33 @@
+# Logs
+*.log
+neko.log
+
+# Node
+node_modules/
+package-lock.json
+
+# Environment
+.env
+.env.local
+*.env
+
+# Browser profiles (contain cookies/auth)
+**/profile/
+**/ChromeGemini*/
+**/perplexity-profile/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+*.bak
+mcp-servers/perplexity-mcp/
+
+# Local MCP config with secrets
+.mcp.json

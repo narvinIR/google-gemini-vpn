@@ -1,0 +1,46 @@
+{
+  "dns": {
+    "servers": [
+      {
+        "tag": "cloudflare-doh",
+        "address": "https://1.1.1.1/dns-query",
+        "detour": "proxy"
+      },
+      {
+        "tag": "cloudflare-direct",
+        "address": "1.1.1.1",
+        "detour": "direct"
+      }
+    ],
+    "rules": [
+      {
+        "outbound": "any",
+        "server": "cloudflare-doh"
+      },
+      {
+        "domain_suffix": [
+          "google.com",
+          "googleapis.com",
+          "gstatic.com",
+          "googleusercontent.com"
+        ],
+        "server": "cloudflare-doh"
+      }
+    ],
+    "strategy": "prefer_ipv4",
+    "disable_cache": false
+  },
+  "routing": {
+    "rules": [
+      {
+        "domain_suffix": [
+          "google.com",
+          "googleapis.com",
+          "gstatic.com",
+          "googleusercontent.com"
+        ],
+        "outbound": "proxy"
+      }
+    ]
+  }
+}
