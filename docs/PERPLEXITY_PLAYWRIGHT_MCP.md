@@ -50,7 +50,38 @@ claude mcp add playwright-global -s user -- npx @playwright/mcp@latest --user-da
 | `/perplexity-search` | Поиск с текущей моделью |
 | `/ask-gpt5` | Вопрос к GPT-5.1 |
 | `/ask-claude-perplexity` | Вопрос к Claude Sonnet 4.5 |
+| `/ask-space` | **Запрос в Space с контекстом файлов** |
+| `/ask-with-files` | Запрос с локальными файлами |
 | `/deep-research` | Глубокое исследование (Research mode) |
+
+## Perplexity Spaces (Projects)
+
+Spaces — это проекты в Perplexity с постоянным контекстом (как Projects в Claude Desktop).
+
+### Возможности Space:
+- **Files** — загрузка файлов проекта (txt, pdf, код)
+- **Instructions** — системные инструкции (как CLAUDE.md)
+- **Links** — URL документации как источники
+- **Threads** — история разговоров
+
+### Использование Space:
+
+```
+/ask-space marketplaceai Как работает авторизация?
+/ask-space unify-os gpt5 Объясни архитектуру
+```
+
+### Создание Space для проекта:
+1. Открой https://www.perplexity.ai/spaces
+2. Кликни "Create a Space"
+3. Загрузи CLAUDE.md, README, ключевые файлы
+4. Добавь инструкции в Instructions
+5. Используй `/ask-space [имя] вопрос`
+
+### Преимущества:
+- Файлы загружены один раз
+- Контекст сохраняется между сессиями
+- Можно шарить с командой
 
 ## Использование
 
