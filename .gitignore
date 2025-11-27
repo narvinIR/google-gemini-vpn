@@ -31,3 +31,20 @@ mcp-servers/perplexity-mcp/
 
 # Local MCP config with secrets
 .mcp.json
+
+# Google credentials
+credentials/*.json
+service-account.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Parser results
+*.csv
+test_*.csv
