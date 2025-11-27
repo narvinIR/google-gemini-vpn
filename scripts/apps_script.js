@@ -9,8 +9,8 @@
  * 5. Назначь функцию parseOzon на кнопку
  */
 
-// URL твоего API на Northflank (обнови после деплоя)
-const API_URL = "https://ozon-parser-api--ozon-parser.code.run";
+// URL API на Northflank (АКТИВНЫЙ)
+const API_URL = "https://api--ozon-parser--44tkc9lm6yzj.code.run";
 
 /**
  * Запуск парсинга
