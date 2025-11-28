@@ -26,22 +26,63 @@ Google AI Studio (новый аккаунт, Estonia)
 ## MCP Серверы для исследований
 
 **Установленные серверы:**
-- **Perplexity MCP** (sonar-pro) - быстрые запросы (500/день)
+- **Comet MCP** - автоматизация Perplexity Pro (GPT-5.1, Claude, Gemini, Grok, Deep Research)
+- **Perplexity MCP** (sonar-pro) - API запросы (блокируется из РФ без VPN)
 - **GitHub MCP** - работа с репозиториями
-- **Playwright MCP** - автоматизация браузера для Perplexity Pro (GPT-5.1, Claude, Gemini, Grok)
+- **Playwright MCP** - автоматизация браузера
 - **Sequential Thinking MCP** - сложные рассуждения
 - **Memory MCP** - сохранение контекста (./research/research_memory.json)
 - **Filesystem MCP** - доступ к файлам проекта
 
 **Документация:**
 - [README_MCP.md](README_MCP.md) - общая документация MCP
-- [docs/PERPLEXITY_PLAYWRIGHT_MCP.md](docs/PERPLEXITY_PLAYWRIGHT_MCP.md) - **доступ ко всем моделям Perplexity Pro**
+- [docs/PERPLEXITY_PLAYWRIGHT_MCP.md](docs/PERPLEXITY_PLAYWRIGHT_MCP.md) - Playwright MCP
+- [ozon_parser/README.md](ozon_parser/README.md) - парсер конкурентов Ozon
 
 **Workflow:**
-- Быстрые факты → Perplexity MCP API (5-10 сек)
-- Frontier модели → Playwright MCP + Perplexity UI (GPT-5.1, Claude, Gemini, Grok)
-- Deep Research → Playwright MCP (5-15 мин, без API лимитов)
+- Быстрые факты → Perplexity MCP API (5-10 сек, требует VPN)
+- Frontier модели → **Comet MCP** (GPT-5.1, Claude, Gemini, Grok)
+- Deep Research → **Comet MCP** deep_research (5-15 мин)
 - Работа с кодом → GitHub MCP + Filesystem
+
+## Comet MCP Server
+
+Кастомный MCP сервер для Perplexity Pro через браузер.
+
+**Инструменты:**
+| Tool | Описание |
+|------|----------|
+| `perplexity_ask` | Универсальный запрос (выбор модели) |
+| `perplexity_gpt5` | GPT-5.1 |
+| `perplexity_claude` | Claude 4 Sonnet |
+| `perplexity_gemini` | Gemini 2.5 Pro |
+| `perplexity_grok` | Grok 3 |
+| `deep_research` | Глубокое исследование (5-15 мин) |
+
+**Важно:**
+- Работает **только локально** (требует GUI браузер)
+- Первый запуск требует ручной логин в Perplexity Pro
+- Профиль сохраняется в `~/PerplexityCometProfile`
+
+## Ozon Parser (парсинг конкурентов)
+
+**Локальный парсер** (работает из WSL/Windows):
+```bash
+cd ozon_parser
+python auto_parser.py --limit 5  # тест
+python auto_parser.py            # все SKU из Google Sheets
+```
+
+**Функционал:**
+- Извлечение цен через JSON-LD Schema
+- Google Sheets интеграция (gspread)
+- Playwright + stealth для обхода антибота
+- 84% success rate на 87 SKU
+
+**Облачное решение** (для VPS):
+- Требуется Mobile Proxy (~500-1500₽/мес)
+- Заменить Playwright на Camoufox/SeleniumBase
+- См. план: `.claude/plans/ethereal-crunching-quokka.md`
 
 ## Основные команды
 
@@ -122,6 +163,15 @@ LC_ALL=en_US.UTF-8
 
 ```
 google_gemini_vpn/
+├── ozon_parser/                # Парсер конкурентов Ozon
+│   ├── auto_parser.py          # Основной скрипт (Playwright + stealth)
+│   ├── run_parser.bat          # Запуск на Windows
+│   └── README.md               # Документация парсера
+├── mcp-comet-server/           # Comet MCP Server v2.0
+│   └── index.js                # Perplexity Pro автоматизация
+├── research/                   # Исследования
+│   ├── ozon_parsing_research_2025.md  # Облачные решения
+│   └── ozon_api_research.md    # Ozon Seller API
 ├── configs/
 │   ├── nekobox/
 │   │   └── routing-google.json # DNS маршрутизация
