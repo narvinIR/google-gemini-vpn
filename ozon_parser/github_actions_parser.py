@@ -369,11 +369,11 @@ async def main():
             print(f"[INFO] SKUs from Google Sheets: {len(skus)}")
 
     if not skus:
-        # Fallback: real test SKUs from Ozon
+        # Fallback: real test SKUs from Ozon (reversed order for testing)
         skus = [
-            "1730608217",  # Футболка
-            "1656083194",  # Кроссовки
-            "1386628960",  # Рюкзак
+            "1386628960",  # Рюкзак (был успешен)
+            "1656083194",  # Кроссовки (была капча)
+            "1730608217",  # Футболка (был 403)
         ]
         print(f"[INFO] Using built-in test SKUs: {len(skus)}")
 
