@@ -95,6 +95,28 @@ class CloudOzonParser:
 
         print("[OK] Browser started")
 
+    async def warmup(self):
+        """Прогрев сессии - 2 запроса для обхода rate-limit"""
+        print("[WARMUP] Прогрев сессии Ozon...")
+
+        # 1. Главная страница
+        try:
+            await self.page.goto("https://www.ozon.ru/", wait_until="domcontentloaded", timeout=20000)
+            await asyncio.sleep(2)
+            print("  [1/2] Главная загружена")
+        except Exception as e:
+            print(f"  [1/2] Главная: {str(e)[:50]}")
+
+        # 2. Категория (любая популярная)
+        try:
+            await self.page.goto("https://www.ozon.ru/category/elektronika-15500/", wait_until="domcontentloaded", timeout=20000)
+            await asyncio.sleep(2)
+            print("  [2/2] Категория загружена")
+        except Exception as e:
+            print(f"  [2/2] Категория: {str(e)[:50]}")
+
+        print("[WARMUP] Сессия прогрета, начинаем парсинг")
+
     async def close(self):
         """Закрытие браузера"""
         if self.browser:
@@ -392,6 +414,7 @@ async def main():
 
     try:
         await ozon.start()
+        await ozon.warmup()  # Прогрев сессии для обхода rate-limit
         results = await ozon.parse_batch(skus)
 
         # Save results
