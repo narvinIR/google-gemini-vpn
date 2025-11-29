@@ -369,9 +369,13 @@ async def main():
             print(f"[INFO] SKUs from Google Sheets: {len(skus)}")
 
     if not skus:
-        # Fallback: test SKUs
-        skus = ["1234567890", "9876543210"]
-        print(f"[WARN] Using test SKUs: {skus}")
+        # Fallback: real test SKUs from Ozon
+        skus = [
+            "1730608217",  # Футболка
+            "1656083194",  # Кроссовки
+            "1386628960",  # Рюкзак
+        ]
+        print(f"[INFO] Using built-in test SKUs: {len(skus)}")
 
     # Apply limit
     if args.limit > 0:
