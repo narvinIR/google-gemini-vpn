@@ -5,8 +5,21 @@ on:
     - cron: '0 6 * * *'  # 9:00 MSK = 6:00 UTC каждый день
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'Parsing mode'
+        required: false
+        default: 'search'
+        type: choice
+        options:
+          - search
+          - product
+      queries:
+        description: 'Search queries (for search mode, comma-separated)'
+        required: false
+        default: 'fuchs titan,shell helix'
+        type: string
       limit:
-        description: 'Limit SKUs (0 = all)'
+        description: 'Limit SKUs (0 = all, for product mode)'
         required: false
         default: '10'
         type: string
@@ -46,9 +59,23 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: |
           cd ozon_parser
-          python github_actions_parser.py \
-            --limit ${{ github.event.inputs.limit || '0' }} \
-            ${{ github.event.inputs.test_mode == 'true' && '--test' || '' }}
+          MODE="${{ github.event.inputs.mode || 'search' }}"
+          QUERIES="${{ github.event.inputs.queries || 'fuchs titan' }}"
+
+          if [ "$MODE" = "search" ]; then
+            # v4: Search page parsing (одна страница = много товаров)
+            # Разбиваем queries по запятой в аргументы
+            IFS=',' read -ra QUERY_ARRAY <<< "$QUERIES"
+            python github_actions_parser.py \
+              --search \
+              --queries "${QUERY_ARRAY[@]}" \
+              ${{ github.event.inputs.test_mode == 'true' && '--test' || '' }}
+          else
+            # v3: Product page parsing (старый метод)
+            python github_actions_parser.py \
+              --limit ${{ github.event.inputs.limit || '10' }} \
+              ${{ github.event.inputs.test_mode == 'true' && '--test' || '' }}
+          fi
 
       - name: Upload results artifact
         uses: actions/upload-artifact@v4

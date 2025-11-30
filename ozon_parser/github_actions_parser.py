@@ -253,6 +253,248 @@ class CloudOzonParser:
                 pass
         print("    [RE-WARMUP] Готово", flush=True)
 
+    async def parse_search_page(self, query: str, target_skus: List[str] = None) -> List[Dict]:
+        """
+        Парсинг страницы ПОИСКА вместо отдельных карточек товаров.
+        Одна страница = много товаров с ценами.
+
+        Args:
+            query: Поисковый запрос (напр. "fuchs titan 5w40")
+            target_skus: Список SKU для фильтрации (опционально)
+
+        Returns:
+            Список найденных товаров с ценами
+        """
+        import re
+        import urllib.parse
+
+        encoded_query = urllib.parse.quote(query)
+        url = f"https://www.ozon.ru/search/?text={encoded_query}&from_global=true"
+
+        results = []
+        print(f"\n[SEARCH] Парсинг поиска: '{query}'", flush=True)
+        print(f"  URL: {url[:80]}...", flush=True)
+
+        try:
+            response = await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            status = response.status if response else "N/A"
+            print(f"  HTTP: {status}", flush=True)
+
+            if response and response.status >= 400:
+                print(f"  [ERROR] HTTP {response.status}", flush=True)
+                return results
+
+            # Ждём загрузку + human behavior
+            await asyncio.sleep(random.uniform(3.0, 5.0))
+            await self.human_behavior()
+
+            # Проверяем антибот
+            title = await self.page.title()
+            if "Antibot" in title or "captcha" in title.lower():
+                print("  [ERROR] ANTIBOT_DETECTED on search page", flush=True)
+                return results
+
+            # === МЕТОД 1: Извлечение из JSON State ===
+            print("  [DEBUG] Поиск JSON state...", flush=True)
+
+            json_data = await self.page.evaluate("""
+                () => {
+                    // Ищем __NUXT_DATA__, __NEXT_DATA__, или другие JSON state
+                    const scripts = document.querySelectorAll('script');
+                    for (const script of scripts) {
+                        const text = script.textContent || '';
+                        // Ищем паттерны с данными товаров
+                        if (text.includes('products') || text.includes('items') || text.includes('searchResultsV2')) {
+                            // Пытаемся извлечь JSON
+                            const matches = text.match(/\{[^{}]*"sku"[^{}]*\}/g);
+                            if (matches && matches.length > 0) {
+                                return { source: 'inline_json', count: matches.length, sample: matches[0] };
+                            }
+                        }
+                    }
+
+                    // Ищем window.__INITIAL_STATE__
+                    if (window.__INITIAL_STATE__) {
+                        return { source: '__INITIAL_STATE__', data: window.__INITIAL_STATE__ };
+                    }
+
+                    // Ищем NUXT
+                    if (window.__NUXT__) {
+                        return { source: '__NUXT__', keys: Object.keys(window.__NUXT__) };
+                    }
+
+                    return { source: 'not_found' };
+                }
+            """)
+
+            print(f"  [DEBUG] JSON source: {json_data.get('source', 'unknown')}", flush=True)
+
+            # === МЕТОД 2: Парсинг DOM карточек товаров ===
+            print("  [DOM] Извлечение карточек товаров...", flush=True)
+
+            products_data = await self.page.evaluate("""
+                () => {
+                    const products = [];
+
+                    // Ozon использует data-widget="searchResultsV2" для результатов
+                    const container = document.querySelector('[data-widget="searchResultsV2"]');
+                    if (!container) {
+                        // Альтернативный селектор
+                        const items = document.querySelectorAll('[data-index]');
+                        console.log('Found items with data-index:', items.length);
+                    }
+
+                    // Ищем карточки товаров по разным селекторам
+                    const cards = document.querySelectorAll('div[class*="tile"], div[class*="product"], a[href*="/product/"]');
+
+                    for (const card of cards) {
+                        try {
+                            // Извлекаем ссылку с SKU
+                            const link = card.querySelector('a[href*="/product/"]') || card.closest('a[href*="/product/"]');
+                            if (!link) continue;
+
+                            const href = link.getAttribute('href') || '';
+                            const skuMatch = href.match(/\/product\/([a-z0-9-]+)/i);
+                            if (!skuMatch) continue;
+
+                            const sku = skuMatch[1];
+
+                            // Ищем цену
+                            let price = 0;
+                            const priceEl = card.querySelector('[class*="price"], [class*="Price"], span[class*="c3"]');
+                            if (priceEl) {
+                                const priceText = priceEl.textContent || '';
+                                // Убираем пробелы и ₽, оставляем цифры
+                                const priceMatch = priceText.replace(/\s/g, '').match(/(\d+)/);
+                                if (priceMatch) {
+                                    price = parseInt(priceMatch[1], 10);
+                                }
+                            }
+
+                            // Ищем название
+                            let name = '';
+                            const nameEl = card.querySelector('[class*="title"], [class*="name"], span[class*="tsBody"]');
+                            if (nameEl) {
+                                name = nameEl.textContent?.trim() || '';
+                            }
+
+                            if (sku && price > 0) {
+                                products.push({ sku, name: name.slice(0, 150), price });
+                            }
+                        } catch (e) {
+                            // Игнорируем ошибки отдельных карточек
+                        }
+                    }
+
+                    return products;
+                }
+            """)
+
+            print(f"  [DOM] Найдено карточек: {len(products_data)}", flush=True)
+
+            # === МЕТОД 3: Парсинг через JSON-LD (если есть) ===
+            jsonld_products = await self.page.evaluate("""
+                () => {
+                    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+                    const products = [];
+
+                    for (const script of scripts) {
+                        try {
+                            const data = JSON.parse(script.textContent);
+                            if (data['@type'] === 'ItemList' && data.itemListElement) {
+                                for (const item of data.itemListElement) {
+                                    if (item.item && item.item.offers) {
+                                        products.push({
+                                            sku: item.item.sku || '',
+                                            name: item.item.name || '',
+                                            price: parseFloat(item.item.offers.price) || 0
+                                        });
+                                    }
+                                }
+                            }
+                        } catch (e) {}
+                    }
+
+                    return products;
+                }
+            """)
+
+            print(f"  [JSON-LD] Найдено: {len(jsonld_products)}", flush=True)
+
+            # Объединяем результаты из всех методов
+            all_products = products_data + jsonld_products
+
+            # Дедупликация по SKU
+            seen_skus = set()
+            for p in all_products:
+                sku = str(p.get('sku', '')).split('-')[0]  # Убираем суффикс если есть
+                if sku and sku not in seen_skus:
+                    seen_skus.add(sku)
+                    results.append({
+                        "sku": sku,
+                        "name": p.get('name', ''),
+                        "price": p.get('price', 0),
+                        "currency": "RUB",
+                        "brand": "",
+                        "rating": 0,
+                        "reviews": 0,
+                        "availability": "InStock" if p.get('price', 0) > 0 else "Unknown",
+                        "error": "",
+                        "parsed_at": datetime.utcnow().isoformat() + "Z",
+                        "source": "search_page"
+                    })
+
+            # Фильтруем по target_skus если заданы
+            if target_skus:
+                target_set = set(str(s) for s in target_skus)
+                filtered = [r for r in results if r['sku'] in target_set]
+                print(f"  [FILTER] Совпадений с целевыми SKU: {len(filtered)}/{len(target_skus)}", flush=True)
+                return filtered
+
+            print(f"  [RESULT] Всего уникальных товаров: {len(results)}", flush=True)
+
+            # Выводим первые 5 для проверки
+            for i, p in enumerate(results[:5]):
+                print(f"    {i+1}. SKU {p['sku']}: {p['price']} RUB - {p['name'][:50]}...", flush=True)
+
+        except Exception as e:
+            print(f"  [ERROR] {str(e)[:100]}", flush=True)
+
+        return results
+
+    async def parse_search_batch(self, queries: List[str], target_skus: List[str] = None) -> List[Dict]:
+        """
+        Парсинг нескольких поисковых запросов.
+
+        Args:
+            queries: Список поисковых запросов
+            target_skus: Целевые SKU для сопоставления
+        """
+        all_results = []
+
+        for i, query in enumerate(queries, 1):
+            print(f"\n[{i}/{len(queries)}] Обрабатываем запрос: '{query}'", flush=True)
+
+            results = await self.parse_search_page(query, target_skus)
+            all_results.extend(results)
+
+            # Задержка между запросами
+            if i < len(queries):
+                delay = random.uniform(10.0, 15.0)
+                print(f"  Ожидание {delay:.1f}с перед следующим запросом...", flush=True)
+                await asyncio.sleep(delay)
+
+        # Дедупликация финальных результатов
+        seen = set()
+        unique_results = []
+        for r in all_results:
+            if r['sku'] not in seen:
+                seen.add(r['sku'])
+                unique_results.append(r)
+
+        print(f"\n[TOTAL] Найдено уникальных товаров: {len(unique_results)}", flush=True)
+        return unique_results
+
     async def parse_batch(self, skus: List[str]) -> List[Dict]:
         """Парсинг списка SKU с re-warmup при блокировке"""
         results = []
@@ -424,16 +666,23 @@ async def main():
     parser.add_argument("--skus", nargs="+", help="Manual SKU list")
     parser.add_argument("--delay", type=float, default=10.0, help="Delay between requests (10-15s recommended)")
     parser.add_argument("--no-camoufox", action="store_true", help="Use standard Playwright")
+    parser.add_argument("--search", action="store_true", help="Use SEARCH page parsing (v4 mode)")
+    parser.add_argument("--queries", nargs="+", default=["fuchs titan"], help="Search queries for --search mode")
 
     args = parser.parse_args()
 
+    # Определяем режим
+    mode = "SEARCH" if args.search else "PRODUCT"
+
     print("=" * 60)
-    print("  OZON PARSER - GitHub Actions Cloud Version v3")
-    print("  (Extended delays + Re-warmup on block)")
+    print("  OZON PARSER - GitHub Actions Cloud Version v4")
+    print(f"  Mode: {mode} page parsing")
     print("=" * 60)
-    print(f"  Mode: {'Camoufox' if CAMOUFOX_AVAILABLE and not args.no_camoufox else 'Playwright + SlowMo'}")
-    print(f"  Delay: 25-35s between products")
-    print(f"  Warmup: 5 pages + re-warmup on 2 consecutive blocks")
+    print(f"  Browser: {'Camoufox' if CAMOUFOX_AVAILABLE and not args.no_camoufox else 'Playwright + SlowMo'}")
+    if args.search:
+        print(f"  Queries: {args.queries}")
+    else:
+        print(f"  Delay: 25-35s between products")
     print(f"  Test mode: {args.test}")
     print("=" * 60)
     print()
@@ -468,8 +717,6 @@ async def main():
         skus = skus[:args.limit]
         print(f"[INFO] Limited to {args.limit} SKUs")
 
-    print(f"\n[START] Parsing {len(skus)} products...")
-
     # Parse
     ozon = CloudOzonParser(
         use_camoufox=CAMOUFOX_AVAILABLE and not args.no_camoufox,
@@ -479,7 +726,16 @@ async def main():
     try:
         await ozon.start()
         await ozon.warmup()  # Прогрев сессии для обхода rate-limit
-        results = await ozon.parse_batch(skus)
+
+        # === РЕЖИМ ПАРСИНГА ===
+        if args.search:
+            # v4: Парсинг страниц ПОИСКА (одна страница = много товаров)
+            print(f"\n[START] Parsing SEARCH pages: {args.queries}")
+            results = await ozon.parse_search_batch(args.queries, target_skus=skus if skus else None)
+        else:
+            # v3: Парсинг отдельных карточек товаров (старый метод)
+            print(f"\n[START] Parsing {len(skus)} product pages...")
+            results = await ozon.parse_batch(skus)
 
         # Save results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -497,25 +753,24 @@ async def main():
                 write_results_to_sheets(gc, sheet_id, results)
 
         # Stats
-        successful = [r for r in results if not r["error"]]
-        antibot = [r for r in results if r["error"] == "ANTIBOT_DETECTED"]
+        successful = [r for r in results if not r.get("error")]
+        antibot = [r for r in results if r.get("error") == "ANTIBOT_DETECTED"]
 
         print(f"\n{'='*50}")
-        print(f"RESULTS: {len(successful)}/{len(results)} successful")
-        print(f"ANTIBOT: {len(antibot)} blocked")
+        print(f"RESULTS: {len(successful)} products found")
+        if antibot:
+            print(f"ANTIBOT: {len(antibot)} blocked")
 
         if successful:
             prices = [r["price"] for r in successful if r["price"] > 0]
             if prices:
                 print(f"Prices: {min(prices):.0f} - {max(prices):.0f} RUB")
+                print(f"Average: {sum(prices)/len(prices):.0f} RUB")
 
-        # Exit code based on success rate
-        success_rate = len(successful) / len(results) if results else 0
-        if success_rate < 0.5:
-            print(f"\n[WARN] Low success rate: {success_rate:.0%}")
-            if len(antibot) >= 3:
-                print("[ERROR] GitHub Actions IP likely blocked by Ozon")
-                sys.exit(2)
+        # Exit code
+        if not results:
+            print("\n[ERROR] No results obtained")
+            sys.exit(1)
 
     finally:
         await ozon.close()
