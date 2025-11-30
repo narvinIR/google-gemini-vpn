@@ -391,11 +391,13 @@ async def main():
             print(f"[INFO] SKUs from Google Sheets: {len(skus)}")
 
     if not skus:
-        # Fallback: real test SKUs from Ozon (reversed order for testing)
+        # Fallback: real SKUs from your Google Sheets (Fuchs oils)
         skus = [
-            "1386628960",  # Рюкзак (был успешен)
-            "1656083194",  # Кроссовки (была капча)
-            "1730608217",  # Футболка (был 403)
+            "2047259625",  # Fuchs 5W-40 1L - 819₽
+            "2047258756",  # Fuchs 5W-30 1L - 697₽
+            "2047250383",  # Fuchs 5W-40 4L - 1915₽
+            "2047248764",  # Fuchs 5W-40 4L - 2653₽
+            "2047245776",  # Fuchs 0W-20 4L - 2388₽
         ]
         print(f"[INFO] Using built-in test SKUs: {len(skus)}")
 
