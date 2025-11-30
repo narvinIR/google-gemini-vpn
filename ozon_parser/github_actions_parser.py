@@ -237,11 +237,28 @@ class CloudOzonParser:
 
         return result
 
+    async def mini_warmup(self):
+        """Короткий warmup после блокировки"""
+        print("    [RE-WARMUP] Восстановление сессии...", flush=True)
+        warmup_urls = [
+            "https://www.ozon.ru/",
+            "https://www.ozon.ru/search/?text=автомобильные+масла",
+        ]
+        for url in warmup_urls:
+            try:
+                await self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await self.human_behavior()
+                await asyncio.sleep(random.uniform(4.0, 6.0))
+            except Exception:
+                pass
+        print("    [RE-WARMUP] Готово", flush=True)
+
     async def parse_batch(self, skus: List[str]) -> List[Dict]:
-        """Парсинг списка SKU"""
+        """Парсинг списка SKU с re-warmup при блокировке"""
         results = []
         total = len(skus)
         antibot_count = 0
+        consecutive_antibot = 0
 
         for i, sku in enumerate(skus, 1):
             print(f"[{i}/{total}] SKU {sku}...", end=" ", flush=True)
@@ -253,15 +270,24 @@ class CloudOzonParser:
                 print(f"ERROR: {result['error']}")
                 if result["error"] == "ANTIBOT_DETECTED":
                     antibot_count += 1
-                    if antibot_count >= 3:
+                    consecutive_antibot += 1
+
+                    # После 2 подряд блокировок - re-warmup
+                    if consecutive_antibot >= 2:
+                        await self.mini_warmup()
+                        consecutive_antibot = 0
+
+                    # Абортируем только после 5 блокировок подряд
+                    if antibot_count >= 5:
                         print("\n[ABORT] Too many antibot detections, stopping")
                         break
             else:
                 print(f"{result['price']} RUB | {result['rating']}* | {result['reviews']} reviews")
+                consecutive_antibot = 0  # Сброс счётчика при успехе
 
-            # Увеличенная случайная задержка (10-15 сек)
+            # Увеличенная задержка 25-35 сек
             if i < total:
-                delay = self.delay + random.uniform(2.0, 5.0)
+                delay = 25.0 + random.uniform(0, 10.0)
                 print(f"    Ожидание {delay:.1f}с перед следующим товаром...", flush=True)
                 await asyncio.sleep(delay)
 
@@ -402,12 +428,12 @@ async def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("  OZON PARSER - GitHub Actions Cloud Version v2")
-    print("  (Human-like behavior + Extended warmup)")
+    print("  OZON PARSER - GitHub Actions Cloud Version v3")
+    print("  (Extended delays + Re-warmup on block)")
     print("=" * 60)
     print(f"  Mode: {'Camoufox' if CAMOUFOX_AVAILABLE and not args.no_camoufox else 'Playwright + SlowMo'}")
-    print(f"  Delay: {args.delay}s + 2-5s random (total ~12-15s)")
-    print(f"  Warmup: 5 pages with human behavior")
+    print(f"  Delay: 25-35s between products")
+    print(f"  Warmup: 5 pages + re-warmup on 2 consecutive blocks")
     print(f"  Test mode: {args.test}")
     print("=" * 60)
     print()
