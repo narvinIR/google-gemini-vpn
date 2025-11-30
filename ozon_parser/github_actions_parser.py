@@ -96,26 +96,26 @@ class CloudOzonParser:
         print("[OK] Browser started")
 
     async def warmup(self):
-        """Прогрев сессии - 2 запроса для обхода rate-limit"""
-        print("[WARMUP] Прогрев сессии Ozon...")
+        """Прогрев сессии - несколько запросов для обхода rate-limit"""
+        print("[WARMUP] Прогрев сессии Ozon...", flush=True)
 
-        # 1. Главная страница
-        try:
-            await self.page.goto("https://www.ozon.ru/", wait_until="domcontentloaded", timeout=20000)
-            await asyncio.sleep(2)
-            print("  [1/2] Главная загружена")
-        except Exception as e:
-            print(f"  [1/2] Главная: {str(e)[:50]}")
+        warmup_urls = [
+            "https://www.ozon.ru/",
+            "https://www.ozon.ru/category/avtotovary-8500/",
+            "https://www.ozon.ru/search/?text=масло+моторное",
+        ]
 
-        # 2. Категория (любая популярная)
-        try:
-            await self.page.goto("https://www.ozon.ru/category/elektronika-15500/", wait_until="domcontentloaded", timeout=20000)
-            await asyncio.sleep(2)
-            print("  [2/2] Категория загружена")
-        except Exception as e:
-            print(f"  [2/2] Категория: {str(e)[:50]}")
+        for i, url in enumerate(warmup_urls, 1):
+            try:
+                print(f"  [{i}/{len(warmup_urls)}] {url[:50]}...", flush=True)
+                response = await self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                status = response.status if response else "N/A"
+                print(f"  [{i}/{len(warmup_urls)}] HTTP {status}", flush=True)
+                await asyncio.sleep(3)  # Увеличенная задержка
+            except Exception as e:
+                print(f"  [{i}/{len(warmup_urls)}] ERROR: {str(e)[:50]}", flush=True)
 
-        print("[WARMUP] Сессия прогрета, начинаем парсинг")
+        print("[WARMUP] Сессия прогрета, начинаем парсинг", flush=True)
 
     async def close(self):
         """Закрытие браузера"""
