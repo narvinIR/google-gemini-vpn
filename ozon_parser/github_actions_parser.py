@@ -55,9 +55,9 @@ except ImportError:
 class CloudOzonParser:
     """Парсер Ozon для облачного выполнения"""
 
-    def __init__(self, use_camoufox: bool = True, delay: float = 3.0):
+    def __init__(self, use_camoufox: bool = True, delay: float = 10.0):
         self.use_camoufox = use_camoufox and CAMOUFOX_AVAILABLE
-        self.delay = delay
+        self.delay = delay  # Увеличено с 3 до 10 секунд
         self.browser = None
         self.page = None
         self._playwright = None
@@ -73,6 +73,7 @@ class CloudOzonParser:
             self._playwright = await async_playwright().start()
             self.browser = await self._playwright.chromium.launch(
                 headless=True,
+                slow_mo=100,  # Замедление действий на 100мс (человекоподобно)
                 args=[
                     "--lang=ru-RU",
                     "--disable-blink-features=AutomationControlled",
@@ -95,27 +96,57 @@ class CloudOzonParser:
 
         print("[OK] Browser started")
 
+    async def human_behavior(self):
+        """Имитация человеческого поведения на странице"""
+        try:
+            # Случайный скролл вниз
+            scroll_amount = random.randint(300, 800)
+            await self.page.evaluate(f"window.scrollBy(0, {scroll_amount})")
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+
+            # Скролл обратно вверх
+            await self.page.evaluate(f"window.scrollBy(0, -{scroll_amount // 2})")
+            await asyncio.sleep(random.uniform(0.3, 0.8))
+
+            # Случайное движение мыши
+            x = random.randint(100, 800)
+            y = random.randint(100, 600)
+            await self.page.mouse.move(x, y)
+            await asyncio.sleep(random.uniform(0.2, 0.5))
+        except Exception:
+            pass  # Игнорируем ошибки human behavior
+
     async def warmup(self):
-        """Прогрев сессии - несколько запросов для обхода rate-limit"""
-        print("[WARMUP] Прогрев сессии Ozon...", flush=True)
+        """Прогрев сессии - 5+ страниц для обхода rate-limit"""
+        print("[WARMUP] Прогрев сессии Ozon (5 страниц)...", flush=True)
 
         warmup_urls = [
             "https://www.ozon.ru/",
             "https://www.ozon.ru/category/avtotovary-8500/",
             "https://www.ozon.ru/search/?text=масло+моторное",
+            "https://www.ozon.ru/category/masla-motornye-8581/",
+            "https://www.ozon.ru/search/?text=fuchs+titan",
         ]
 
         for i, url in enumerate(warmup_urls, 1):
             try:
-                print(f"  [{i}/{len(warmup_urls)}] {url[:50]}...", flush=True)
-                response = await self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                print(f"  [{i}/{len(warmup_urls)}] {url[:60]}...", flush=True)
+                response = await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
                 status = response.status if response else "N/A"
                 print(f"  [{i}/{len(warmup_urls)}] HTTP {status}", flush=True)
-                await asyncio.sleep(3)  # Увеличенная задержка
+
+                # Человекоподобное поведение на каждой странице
+                await self.human_behavior()
+
+                # Увеличенная задержка 5-8 сек между warmup страницами
+                delay = random.uniform(5.0, 8.0)
+                print(f"  [{i}/{len(warmup_urls)}] Ожидание {delay:.1f}с...", flush=True)
+                await asyncio.sleep(delay)
             except Exception as e:
                 print(f"  [{i}/{len(warmup_urls)}] ERROR: {str(e)[:50]}", flush=True)
+                await asyncio.sleep(3)  # Даже при ошибке ждём
 
-        print("[WARMUP] Сессия прогрета, начинаем парсинг", flush=True)
+        print("[WARMUP] Сессия прогрета после 5 страниц, начинаем парсинг", flush=True)
 
     async def close(self):
         """Закрытие браузера"""
@@ -145,14 +176,16 @@ class CloudOzonParser:
         }
 
         try:
-            response = await self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            response = await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
 
             # Check HTTP status
             if response and response.status >= 400:
                 result["error"] = f"HTTP {response.status}"
                 return result
 
-            await asyncio.sleep(2)
+            # Ждём загрузку контента + human behavior
+            await asyncio.sleep(random.uniform(2.0, 4.0))
+            await self.human_behavior()
 
             # Check antibot
             title = await self.page.title()
@@ -226,9 +259,10 @@ class CloudOzonParser:
             else:
                 print(f"{result['price']} RUB | {result['rating']}* | {result['reviews']} reviews")
 
-            # Random delay
+            # Увеличенная случайная задержка (10-15 сек)
             if i < total:
-                delay = self.delay + random.uniform(0.5, 2.0)
+                delay = self.delay + random.uniform(2.0, 5.0)
+                print(f"    Ожидание {delay:.1f}с перед следующим товаром...", flush=True)
                 await asyncio.sleep(delay)
 
         return results
@@ -362,16 +396,18 @@ async def main():
     parser.add_argument("--limit", type=int, default=0, help="Limit SKUs (0 = all)")
     parser.add_argument("--test", action="store_true", help="Test mode (no save)")
     parser.add_argument("--skus", nargs="+", help="Manual SKU list")
-    parser.add_argument("--delay", type=float, default=3.0, help="Delay between requests")
+    parser.add_argument("--delay", type=float, default=10.0, help="Delay between requests (10-15s recommended)")
     parser.add_argument("--no-camoufox", action="store_true", help="Use standard Playwright")
 
     args = parser.parse_args()
 
     print("=" * 60)
-    print("  OZON PARSER - GitHub Actions Cloud Version")
+    print("  OZON PARSER - GitHub Actions Cloud Version v2")
+    print("  (Human-like behavior + Extended warmup)")
     print("=" * 60)
-    print(f"  Mode: {'Camoufox' if CAMOUFOX_AVAILABLE and not args.no_camoufox else 'Playwright'}")
-    print(f"  Delay: {args.delay}s + random")
+    print(f"  Mode: {'Camoufox' if CAMOUFOX_AVAILABLE and not args.no_camoufox else 'Playwright + SlowMo'}")
+    print(f"  Delay: {args.delay}s + 2-5s random (total ~12-15s)")
+    print(f"  Warmup: 5 pages with human behavior")
     print(f"  Test mode: {args.test}")
     print("=" * 60)
     print()
