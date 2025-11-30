@@ -290,8 +290,15 @@ class CloudOzonParser:
 
             # Проверяем антибот
             title = await self.page.title()
-            if "Antibot" in title or "captcha" in title.lower():
+            content = await self.page.content()
+            content_len = len(content)
+            print(f"  [DEBUG] Page title: {title[:80]}", flush=True)
+            print(f"  [DEBUG] Content length: {content_len} chars", flush=True)
+
+            if "Antibot" in title or "captcha" in title.lower() or "robot" in content.lower()[:5000]:
                 print("  [ERROR] ANTIBOT_DETECTED on search page", flush=True)
+                # Сохраним HTML для анализа
+                print(f"  [DEBUG] First 500 chars: {content[:500]}", flush=True)
                 return results
 
             # === МЕТОД 1: Извлечение из JSON State ===
@@ -332,20 +339,37 @@ class CloudOzonParser:
             # === МЕТОД 2: Парсинг DOM карточек товаров ===
             print("  [DOM] Извлечение карточек товаров...", flush=True)
 
+            # Сначала посчитаем что есть на странице
+            dom_stats = await self.page.evaluate("""
+                () => {
+                    return {
+                        searchResultsV2: document.querySelectorAll('[data-widget="searchResultsV2"]').length,
+                        dataIndex: document.querySelectorAll('[data-index]').length,
+                        productLinks: document.querySelectorAll('a[href*="/product/"]').length,
+                        allLinks: document.querySelectorAll('a').length,
+                        allDivs: document.querySelectorAll('div').length,
+                        scripts: document.querySelectorAll('script').length,
+                        jsonLd: document.querySelectorAll('script[type="application/ld+json"]').length
+                    };
+                }
+            """)
+            print(f"  [DOM STATS] searchResultsV2={dom_stats.get('searchResultsV2')}, dataIndex={dom_stats.get('dataIndex')}, productLinks={dom_stats.get('productLinks')}", flush=True)
+            print(f"  [DOM STATS] allLinks={dom_stats.get('allLinks')}, allDivs={dom_stats.get('allDivs')}, scripts={dom_stats.get('scripts')}, jsonLd={dom_stats.get('jsonLd')}", flush=True)
+
             products_data = await self.page.evaluate("""
                 () => {
                     const products = [];
+                    const debug = { foundCards: 0, parsedProducts: 0, errors: [] };
 
                     // Ozon использует data-widget="searchResultsV2" для результатов
                     const container = document.querySelector('[data-widget="searchResultsV2"]');
                     if (!container) {
-                        // Альтернативный селектор
-                        const items = document.querySelectorAll('[data-index]');
-                        console.log('Found items with data-index:', items.length);
+                        debug.errors.push('No searchResultsV2 container');
                     }
 
                     // Ищем карточки товаров по разным селекторам
                     const cards = document.querySelectorAll('div[class*="tile"], div[class*="product"], a[href*="/product/"]');
+                    debug.foundCards = cards.length;
 
                     for (const card of cards) {
                         try {
@@ -380,17 +404,22 @@ class CloudOzonParser:
 
                             if (sku && price > 0) {
                                 products.push({ sku, name: name.slice(0, 150), price });
+                                debug.parsedProducts++;
                             }
                         } catch (e) {
-                            // Игнорируем ошибки отдельных карточек
+                            debug.errors.push(e.message);
                         }
                     }
 
-                    return products;
+                    return { products, debug };
                 }
             """)
 
-            print(f"  [DOM] Найдено карточек: {len(products_data)}", flush=True)
+            debug_info = products_data.get('debug', {})
+            products_data = products_data.get('products', [])
+            print(f"  [DOM] foundCards={debug_info.get('foundCards')}, parsedProducts={debug_info.get('parsedProducts')}", flush=True)
+            if debug_info.get('errors'):
+                print(f"  [DOM ERRORS] {debug_info.get('errors')[:3]}", flush=True)
 
             # === МЕТОД 3: Парсинг через JSON-LD (если есть) ===
             jsonld_products = await self.page.evaluate("""
@@ -767,10 +796,12 @@ async def main():
                 print(f"Prices: {min(prices):.0f} - {max(prices):.0f} RUB")
                 print(f"Average: {sum(prices)/len(prices):.0f} RUB")
 
-        # Exit code
+        # Exit code - НЕ падаем при пустых результатах для отладки
         if not results:
-            print("\n[ERROR] No results obtained")
-            sys.exit(1)
+            print("\n[WARN] No results obtained - check logs above for debug info")
+            # НЕ делаем sys.exit(1) чтобы видеть полные логи
+        else:
+            print(f"\n[OK] Successfully parsed {len(results)} products")
 
     finally:
         await ozon.close()
