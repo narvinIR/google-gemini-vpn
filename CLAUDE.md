@@ -66,10 +66,12 @@ Google AI Studio (новый аккаунт, Estonia)
 
 ## Ozon Parser (парсинг конкурентов)
 
-**Локальный парсер** (работает из WSL/Windows):
+### Локальный парсер (РЕКОМЕНДУЕТСЯ)
+
+**Работает из WSL/Windows с GUI:**
 ```bash
 cd ozon_parser
-python auto_parser.py --limit 5  # тест
+python auto_parser.py --limit 5  # тест (5 SKU)
 python auto_parser.py            # все SKU из Google Sheets
 ```
 
@@ -79,10 +81,25 @@ python auto_parser.py            # все SKU из Google Sheets
 - Playwright + stealth для обхода антибота
 - 84% success rate на 87 SKU
 
-**Облачное решение** (для VPS):
-- Требуется Mobile Proxy (~500-1500₽/мес)
-- Заменить Playwright на Camoufox/SeleniumBase
-- См. план: `.claude/plans/ethereal-crunching-quokka.md`
+**Требования:**
+- Windows/Linux с GUI (НЕ headless)
+- Домашний IP (НЕ VPS/датацентр)
+- Python 3.11+, Playwright, gspread
+
+### Облачное решение - РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ
+
+**Статус:** НЕ РАБОТАЕТ без платных прокси
+
+**GitHub Actions (ноябрь 2025):**
+- 12 тестовых запусков
+- **HTTP 403** на ВСЕ запросы с датацентровых IP
+- Camoufox (anti-detect browser) не помогает
+- Проблема в IP-адресе, НЕ в fingerprint
+
+**Вывод:** Ozon блокирует все облачные/VPS IP. Для облачного парсинга нужен:
+- Residential proxy ($30+/мес)
+- Mobile proxy (~500-1500₽/мес)
+- Или использовать локальный ПК
 
 ## Основные команды
 
@@ -169,19 +186,28 @@ google_gemini_vpn/
 │   └── README.md               # Документация парсера
 ├── mcp-comet-server/           # Comet MCP Server v2.0
 │   └── index.js                # Perplexity Pro автоматизация
-├── research/                   # Исследования
-│   ├── ozon_parsing_research_2025.md  # Облачные решения
-│   └── ozon_api_research.md    # Ozon Seller API
+├── scripts/                    # Утилиты и скрипты
+│   ├── generate-hosts.py       # Генератор hosts для AI сервисов
+│   ├── antigravity-launcher.sh # Запуск Antigravity (Linux)
+│   └── antigravity-launcher.bat # Запуск Antigravity (Windows)
 ├── configs/
 │   ├── nekobox/
 │   │   └── routing-google.json # DNS маршрутизация
-│   └── warp/
-│       └── settings.md         # Руководство WARP
+│   ├── warp/
+│   │   └── settings.md         # Руководство WARP
+│   ├── ai-domains.txt          # Список AI доменов
+│   └── adguard-rules.txt       # Правила для AdGuard DNS
 ├── docs/
+│   ├── ADGUARD_SETUP.md        # Настройка AdGuard DNS
+│   ├── GOOGLE_AI_PRO_FREE.md   # Бесплатная подписка Google AI Pro
+│   ├── ANTIGRAVITY_SETUP.md    # Настройка Google Antigravity
 │   ├── AI_WORKFLOW.md          # Мульти-модельный AI workflow
 │   ├── ARCHITECTURE.md         # Архитектура системы
 │   ├── PERPLEXITY_PLAYWRIGHT_MCP.md  # Playwright MCP
 │   └── TROUBLESHOOTING.md      # Решение проблем
+├── research/                   # Исследования
+│   ├── ozon_parsing_research_2025.md  # Облачные решения
+│   └── ozon_api_research.md    # Ozon Seller API
 ├── gemini-browser.{sh,bat}     # Запуск браузера
 ├── check-leaks.bat             # Проверка утечек
 ├── .mcp.json.example           # Шаблон MCP конфига

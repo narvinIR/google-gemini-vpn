@@ -1,0 +1,64 @@
+# AdGuard Private DNS - Правила разблокировки AI сервисов
+# Импортировать в: adguard-dns.io → Серверы → Пользовательские правила → Импорт
+#
+# Эти правила НЕ блокируют рекламу, а разрешают доступ к AI сервисам
+# которые могут быть заблокированы на уровне DNS в некоторых регионах
+
+# === OpenAI / ChatGPT ===
+@@||chatgpt.com^
+@@||chat.openai.com^
+@@||openai.com^
+@@||api.openai.com^
+@@||cdn.openai.com^
+@@||auth0.openai.com^
+@@||files.oaiusercontent.com^
+@@||oaistatic.com^
+
+# === Google Gemini / AI Studio ===
+@@||gemini.google.com^
+@@||aistudio.google.com^
+@@||generativelanguage.googleapis.com^
+@@||ai.google.dev^
+@@||makersuite.google.com^
+@@||bard.google.com^
+@@||deepmind.google^
+
+# === Google Antigravity IDE ===
+@@||antigravity.google^
+@@||antigravity.codes^
+@@||open-vsx.org^
+
+# === Anthropic Claude ===
+@@||claude.ai^
+@@||anthropic.com^
+@@||api.anthropic.com^
+
+# === xAI Grok ===
+@@||grok.x.ai^
+@@||x.ai^
+@@||api.x.ai^
+
+# === Perplexity ===
+@@||perplexity.ai^
+@@||api.perplexity.ai^
+
+# === Mistral ===
+@@||mistral.ai^
+@@||chat.mistral.ai^
+@@||api.mistral.ai^
+
+# === Meta AI ===
+@@||meta.ai^
+@@||ai.meta.com^
+
+# === Other AI Services ===
+@@||cohere.ai^
+@@||cohere.com^
+@@||huggingface.co^
+@@||api-inference.huggingface.co^
+@@||stability.ai^
+@@||api.stability.ai^
+@@||midjourney.com^
+@@||runwayml.com^
+@@||replicate.com^
+@@||together.ai^
