@@ -356,6 +356,36 @@ class CloudOzonParser:
             print(f"  [DOM STATS] searchResultsV2={dom_stats.get('searchResultsV2')}, dataIndex={dom_stats.get('dataIndex')}, productLinks={dom_stats.get('productLinks')}", flush=True)
             print(f"  [DOM STATS] allLinks={dom_stats.get('allLinks')}, allDivs={dom_stats.get('allDivs')}, scripts={dom_stats.get('scripts')}, jsonLd={dom_stats.get('jsonLd')}", flush=True)
 
+            # === СОХРАНЯЕМ DEBUG ИНФОРМАЦИЮ В ФАЙЛЫ ===
+            debug_dir = Path("debug")
+            debug_dir.mkdir(exist_ok=True)
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+
+            # 1. Скриншот страницы
+            screenshot_path = debug_dir / f"search_{timestamp}.png"
+            await self.page.screenshot(path=str(screenshot_path), full_page=True)
+            print(f"  [DEBUG] Screenshot saved: {screenshot_path}", flush=True)
+
+            # 2. HTML страницы (первые 100KB)
+            html_path = debug_dir / f"search_{timestamp}.html"
+            html_path.write_text(content[:100000], encoding="utf-8")
+            print(f"  [DEBUG] HTML saved: {html_path} ({len(content[:100000])} chars)", flush=True)
+
+            # 3. Debug JSON
+            debug_data = {
+                "timestamp": timestamp,
+                "query": query,
+                "url": url,
+                "http_status": status,
+                "page_title": title,
+                "content_length": content_len,
+                "dom_stats": dom_stats,
+                "json_source": json_data.get('source', 'unknown'),
+            }
+            debug_json_path = debug_dir / f"debug_{timestamp}.json"
+            debug_json_path.write_text(json.dumps(debug_data, indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"  [DEBUG] JSON saved: {debug_json_path}", flush=True)
+
             products_data = await self.page.evaluate("""
                 () => {
                     const products = [];
